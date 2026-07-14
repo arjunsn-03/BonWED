@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd wedding-app && npm run build",
+  "outputDirectory": "wedding-app/.next",
+  "installCommand": "cd wedding-app && npm install",
+  "framework": "nextjs"
+}
