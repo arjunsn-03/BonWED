@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💍 Wedding Planner App
 
-## Getting Started
+A private, family-only web app to plan and track every aspect of a wedding (Engagement + Marriage). Built with Next.js, Firebase, and Tailwind CSS. Installable as a PWA.
 
-First, run the development server:
+## Setup
+
+### 1. Create a Firebase Project
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Add project**
+2. Enable **Blaze (pay-as-you-go)** plan (required for Phone Auth + Storage)
+3. Enable **Authentication → Phone** sign-in
+4. Create a **Firestore** database (start in production mode)
+5. Enable **Storage**
+6. Register a **Web app** and copy the config
+
+### 2. Configure Environment Variables
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
+# Fill in your Firebase project values in .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Add yourself to the Allowlist
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+In Firebase Console → Firestore, manually create a document:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Collection**: `allowlist`
+- **Document ID**: your phone number with country code, e.g. `+919876543210`
+- **Fields**: `name` (string), `phone` (string), `addedAt` (number timestamp), `addedBy` (string)
 
-## Learn More
+### 4. Deploy Firestore Rules & Indexes
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 5. Install & Run
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+npm run dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to the login page.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy to Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push to GitHub
+2. Connect to Vercel (free Hobby plan)
+3. Add environment variables in Vercel project settings (same as `.env.local`)
+4. Set up custom domain in Vercel → point DNS CNAME to `cname.vercel-dns.com`
+
+## Architecture
+
+```
+src/
+├── app/                     # Next.js App Router
+│   ├── login/               # Phone OTP login page
+│   └── app/                 # Protected app shell (auth guard)
+│       ├── page.tsx          # Dashboard
+│       ├── engagement/       # Engagement sub-pages
+│       │   ├── venue/
+│       │   ├── schedule/
+│       │   ├── tasks/
+│       │   ├── clothing/
+│       │   ├── makeup/
+│       │   ├── invitations/
+│       │   ├── invitees/
+│       │   ├── accommodation/
+│       │   ├── budget/
+│       │   └── vendors/
+│       ├── marriage/         # Same structure as engagement
+│       ├── gallery/
+│       └── settings/
+├── components/              # Reusable UI components
+├── context/                 # React contexts (Auth, Settings)
+├── hooks/                   # Firebase realtime hooks
+└── lib/                     # Firebase init, types, storage helpers
+```
+
+## PWA Icons
+
+Add two icon files to `public/icons/`:
+- `icon-192.png` — 192×192px
+- `icon-512.png` — 512×512px
+
+Use any design tool to create them, or use an online favicon generator.
+
+## Development Notes
+
+- Use Firebase Console → Authentication → Phone → **Test phone numbers** during development to avoid real SMS sends
+- Image uploads are compressed to max 1600px / 1MB before upload
+- All data syncs in real-time via Firestore `onSnapshot` listeners
+- Firestore security rules enforce allowlist at the database level

@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the caller authenticated and on the allowlist?
+    function isAllowed() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/allowlist/$(request.auth.token.phone_number));
+    }
+
+    // Allowlist — only allowed members can read; writes only allowed
+    // if the caller is already allowed (so the first admin must be added
+    // directly in Firebase Console).
+    match /allowlist/{phone} {
+      allow read: if isAllowed();
+      allow write: if isAllowed();
+    }
+
+    // User profiles
+    match /users/{uid} {
+      allow read: if isAllowed();
+      allow write: if isAllowed() && request.auth.uid == uid;
+    }
+
+    // App settings
+    match /settings/{docId} {
+      allow read: if isAllowed();
+      allow write: if isAllowed();
+    }
+
+    // All wedding data — only allowed members
+    match /options/{docId} {
+      allow read, write: if isAllowed();
+    }
+
+    match /scheduleItems/{docId} {
+      allow read, write: if isAllowed();
+    }
+
+    match /tasks/{docId} {
+      allow read, write: if isAllowed();
+    }
+
+    match /guests/{docId} {
+      allow read, write: if isAllowed();
+    }
+
+    match /budgetEntries/{docId} {
+      allow read, write: if isAllowed();
+    }
+  }
+}

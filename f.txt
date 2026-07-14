@@ -1,0 +1,41 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDKM4zrH4mlRkcs7qVUaGb92_dq3pDKPtI",
+  authDomain: "bonwed-4cff4.firebaseapp.com",
+  projectId: "bonwed-4cff4",
+  storageBucket: "bonwed-4cff4.firebasestorage.app",
+  messagingSenderId: "136449391653",
+  appId: "1:136449391653:web:63c8fac52a3be1516493cc",
+  measurementId: "G-4N82FH872X"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDKM4zrH4mlRkcs7qVUaGb92_dq3pDKPtI",
+  authDomain: "bonwed-4cff4.firebaseapp.com",
+  projectId: "bonwed-4cff4",
+  storageBucket: "bonwed-4cff4.firebasestorage.app",
+  messagingSenderId: "136449391653",
+  appId: "1:136449391653:web:63c8fac52a3be1516493cc",
+  measurementId: "G-4N82FH872X"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
