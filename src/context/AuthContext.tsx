@@ -49,14 +49,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Check allowlist
-      const phone = firebaseUser.phoneNumber ?? "";
-      const normalizedPhone = phone.replace(/\s+/g, "");
-      const allowRef = doc(db, COLLECTIONS.allowlist, normalizedPhone);
-      const allowSnap = await getDoc(allowRef);
+      // Check allowlist — try phone first, then email (for Google login)
+      let allowed = false;
+      let memberName: string | null = null;
 
-      if (!allowSnap.exists()) {
-        // Phone not in allowlist — sign them out
+      const phone = firebaseUser.phoneNumber ?? "";
+      if (phone) {
+        const normalizedPhone = phone.replace(/\s+/g, "");
+        const allowSnap = await getDoc(doc(db, COLLECTIONS.allowlist, normalizedPhone));
+        if (allowSnap.exists()) {
+          allowed = true;
+          memberName = allowSnap.data()?.name ?? null;
+        }
+      }
+
+      if (!allowed && firebaseUser.email) {
+        const allowSnap = await getDoc(doc(db, COLLECTIONS.allowlist, firebaseUser.email));
+        if (allowSnap.exists()) {
+          allowed = true;
+          memberName = allowSnap.data()?.name ?? null;
+        }
+      }
+
+      if (!allowed) {
         await firebaseSignOut(auth);
         setUser(null);
         setProfile(null);
@@ -75,8 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!userSnap.exists()) {
         const newProfile: UserProfile = {
           uid: firebaseUser.uid,
-          phone: normalizedPhone,
-          displayName: allowSnap.data()?.name ?? null,
+          phone: firebaseUser.phoneNumber ?? firebaseUser.email ?? "",
+          displayName: memberName ?? firebaseUser.displayName ?? null,
           createdAt: Date.now(),
           lastLoginAt: Date.now(),
         };

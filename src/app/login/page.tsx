@@ -2,74 +2,62 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/collections";
 
-// Convert a phone number to a fake email for Firebase Email/Password auth
-function phoneToEmail(phone: string): string {
-  const normalized = phone.trim().replace(/\s+/g, "").replace(/^\+/, "");
-  return `${normalized}@bonwed.app`;
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleGoogleLogin() {
     setError("");
     setLoading(true);
 
-    let normalizedPhone = phone.trim().replace(/\s+/g, "");
-    if (!normalizedPhone.startsWith("+")) {
-      normalizedPhone = "+" + normalizedPhone;
-    }
-
-    // Check allowlist first
-    const allowRef = doc(db, COLLECTIONS.allowlist, normalizedPhone);
-    const allowSnap = await getDoc(allowRef);
-    if (!allowSnap.exists()) {
-      setError("Your number isn't on the access list. Contact the app admin.");
-      setLoading(false);
-      return;
-    }
-
-    const email = phoneToEmail(normalizedPhone);
-
     try {
-      // Try signing in first
-      await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/app");
-    } catch (signInErr: unknown) {
-      const code = (signInErr as { code?: string }).code;
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
-      if (code === "auth/user-not-found" || code === "auth/invalid-credential") {
-        // First time — create the account
-        try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          router.replace("/app");
-        } catch (createErr: unknown) {
-          const createCode = (createErr as { code?: string }).code;
-          if (createCode === "auth/weak-password") {
-            setError("Password must be at least 6 characters.");
-          } else {
-            setError("Failed to create account. Try again.");
-          }
-        }
-      } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-        setError("Incorrect password. Try again.");
-      } else if (code === "auth/too-many-requests") {
-        setError("Too many attempts. Try again later.");
+      // Check allowlist by phone number if available, otherwise by email
+      const phone = user.phoneNumber;
+      const email = user.email ?? "";
+
+      // Try phone first, then email as fallback identifier
+      let allowed = false;
+
+      if (phone) {
+        const normalizedPhone = phone.replace(/\s+/g, "");
+        const allowRef = doc(db, COLLECTIONS.allowlist, normalizedPhone);
+        const allowSnap = await getDoc(allowRef);
+        allowed = allowSnap.exists();
+      }
+
+      if (!allowed) {
+        // Also check by email (so you can allowlist by email)
+        const allowRef = doc(db, COLLECTIONS.allowlist, email);
+        const allowSnap = await getDoc(allowRef);
+        allowed = allowSnap.exists();
+      }
+
+      if (!allowed) {
+        await auth.signOut();
+        setError("Your Google account isn't on the access list. Contact the app admin.");
+        setLoading(false);
+        return;
+      }
+
+      router.replace("/app");
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-closed-by-user") {
+        // User dismissed — no error needed
+      } else if (code === "auth/popup-blocked") {
+        setError("Popup was blocked. Please allow popups for this site.");
       } else {
-        setError("Login failed. Check your details and try again.");
+        setError("Sign in failed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -86,58 +74,32 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mt-1">Family access only</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              required
-              autoComplete="username"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Include country code (e.g. +91 for India)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              minLength={6}
-              autoComplete="current-password"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              First time? Any password you enter will be set as yours.
-            </p>
-          </div>
+        <div className="space-y-4">
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-xl py-3 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {/* Google logo SVG */}
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.3 1 7.2 2.7l5.7-5.7C33.5 7.1 29 5 24 5 12.9 5 4 13.9 4 25s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/>
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c2.8 0 5.3 1 7.2 2.7l5.7-5.7C33.5 7.1 29 5 24 5c-7.7 0-14.4 4.4-17.7 9.7z"/>
+              <path fill="#4CAF50" d="M24 45c5 0 9.5-1.9 12.9-5l-6-4.9C29.3 36.6 26.8 37.5 24 37.5c-5.2 0-9.6-3.5-11.2-8.2l-6.5 5C9.4 40.5 16.2 45 24 45z"/>
+              <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4.1-4.2 5.4l6 4.9C40.9 35.5 44 30.7 44 25c0-1.3-.1-2.7-.4-4z"/>
+            </svg>
+            {loading ? "Signing in…" : "Continue with Google"}
+          </button>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 text-center">
               {error}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading || !phone.trim() || !password.trim()}
-            className="w-full bg-pink-600 text-white rounded-lg py-2.5 font-medium text-sm disabled:opacity-50 hover:bg-pink-700 transition-colors"
-          >
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
+          <p className="text-xs text-gray-400 text-center">
+            Only family members with access can sign in
+          </p>
+        </div>
       </div>
     </div>
   );
